@@ -24,6 +24,8 @@ type SimulationRequest struct {
 	MockArgs        *[]string         `json:"mock_args,omitempty"`
 	Profile         bool              `json:"profile,omitempty"`
 	ProtocolVersion *uint32           `json:"protocol_version,omitempty"`
+	MockBaseFee     *uint32           `json:"mock_base_fee,omitempty"`
+	MockGasPrice    *uint64           `json:"mock_gas_price,omitempty"`
 
 	AuthTraceOpts       *AuthTraceOptions      `json:"auth_trace_opts,omitempty"`
 	CustomAuthCfg       map[string]interface{} `json:"custom_auth_config,omitempty"`
@@ -95,6 +97,14 @@ type SecurityViolation struct {
 	Description string                 `json:"description"`
 	Contract    string                 `json:"contract"`
 	Details     map[string]interface{} `json:"details,omitempty"`
+}
+
+// SourceLocation represents a precise position in Rust/WASM source code.
+type SourceLocation struct {
+	File      string  `json:"file"`
+	Line      uint    `json:"line"`
+	Column    uint    `json:"column"`
+	ColumnEnd *uint   `json:"column_end,omitempty"`
 }
 
 // Session represents a stored simulation result

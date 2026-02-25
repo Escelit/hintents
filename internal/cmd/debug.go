@@ -35,25 +35,24 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 var (
-	networkFlag         string
-	rpcURLFlag          string
-	rpcTokenFlag        string
-	tracingEnabled      bool
-	otlpExporterURL     string
-	generateTrace       bool
-	traceOutputFile     string
-	snapshotFlag        string
-	compareNetworkFlag  string
-	verbose             bool
-	wasmPath            string
-	args                []string
-	noCacheFlag         bool
-	demoMode            bool
-	watchFlag           bool
-	watchTimeoutFlag    int
-	protocolVersionFlag uint32
-	themeFlag           string
-	mockTimeFlag        int64
+	networkFlag        string
+	rpcURLFlag         string
+	rpcTokenFlag       string
+	tracingEnabled     bool
+	otlpExporterURL    string
+	generateTrace      bool
+	traceOutputFile    string
+	snapshotFlag       string
+	compareNetworkFlag string
+	verbose            bool
+	wasmPath           string
+	args               []string
+	noCacheFlag        bool
+	demoMode           bool
+	watchFlag          bool
+	watchTimeoutFlag   int
+	mockBaseFeeFlag    uint32
+	mockGasPriceFlag   uint64
 )
 
 // DebugCommand holds dependencies for the debug command
@@ -460,6 +459,7 @@ Local WASM Replay Mode:
 					simReq.ProtocolVersion = &protocolVersionFlag
 					fmt.Printf("Using protocol version override: %d\n", protocolVersionFlag)
 				}
+				applySimulationFeeMocks(simReq)
 
 				simResp, err = runner.Run(simReq)
 				if err != nil {
@@ -492,21 +492,14 @@ Local WASM Replay Mode:
 							return
 						}
 					}
-					simReq := &simulator.SimulationRequest{
-						EnvelopeXdr:     resp.EnvelopeXdr,
-						ResultMetaXdr:   resp.ResultMetaXdr,
-						LedgerEntries:   entries,
-						Timestamp:       ts,
-						ProtocolVersion: nil,
+					primaryReq := &simulator.SimulationRequest{
+						EnvelopeXdr:   resp.EnvelopeXdr,
+						ResultMetaXdr: resp.ResultMetaXdr,
+						LedgerEntries: entries,
+						Timestamp:     ts,
 					}
-					if protocolVersionFlag > 0 {
-						if err := simulator.Validate(protocolVersionFlag); err != nil {
-							primaryErr = fmt.Errorf("invalid protocol version %d: %w", protocolVersionFlag, err)
-							return
-						}
-						simReq.ProtocolVersion = &protocolVersionFlag
-					}
-					primaryResult, primaryErr = runner.Run(simReq)
+					applySimulationFeeMocks(primaryReq)
+					primaryResult, primaryErr = runner.Run(primaryReq)
 				}()
 
 				go func() {
@@ -539,21 +532,14 @@ Local WASM Replay Mode:
 						}
 					}
 
-					simReq := &simulator.SimulationRequest{
-						EnvelopeXdr:     resp.EnvelopeXdr,
-						ResultMetaXdr:   compareResp.ResultMetaXdr,
-						LedgerEntries:   entries,
-						Timestamp:       ts,
-						ProtocolVersion: nil,
+					compareReq := &simulator.SimulationRequest{
+						EnvelopeXdr:   resp.EnvelopeXdr,
+						ResultMetaXdr: compareResp.ResultMetaXdr,
+						LedgerEntries: entries,
+						Timestamp:     ts,
 					}
-					if protocolVersionFlag > 0 {
-						if err := simulator.Validate(protocolVersionFlag); err != nil {
-							compareErr = fmt.Errorf("invalid protocol version %d: %w", protocolVersionFlag, err)
-							return
-						}
-						simReq.ProtocolVersion = &protocolVersionFlag
-					}
-					compareResult, compareErr = runner.Run(simReq)
+					applySimulationFeeMocks(compareReq)
+					compareResult, compareErr = runner.Run(compareReq)
 				}()
 
 				wg.Wait()
@@ -658,6 +644,7 @@ Local WASM Replay Mode:
 			EnvelopeXdr:   resp.EnvelopeXdr,
 			ResultMetaXdr: resp.ResultMetaXdr,
 		}
+		applySimulationFeeMocks(simReq)
 		simReqJSON, err := json.Marshal(simReq)
 		if err != nil {
 			fmt.Printf("Warning: failed to serialize simulation data: %v\n", err)
@@ -742,6 +729,7 @@ func runLocalWasmReplay() error {
 		WasmPath:      &wasmPath,
 		MockArgs:      &args,
 	}
+	applySimulationFeeMocks(req)
 
 	// Run simulation
 	fmt.Printf("%s Executing contract locally...\n", visualizer.Symbol("play"))
@@ -784,6 +772,10 @@ func runLocalWasmReplay() error {
 	if len(resp.Events) > 0 {
 		fmt.Printf("%s Events:\n", visualizer.Symbol("events"))
 		for _, event := range resp.Events {
+			if deprecatedFn, ok := findDeprecatedHostFunction(event); ok {
+				fmt.Printf("  %s %s %s\n", event, visualizer.Warning(), visualizer.Colorize("deprecated host fn: "+deprecatedFn, "yellow"))
+				continue
+			}
 			fmt.Printf("  %s\n", event)
 		}
 		fmt.Println()
@@ -948,6 +940,9 @@ func printSimulationResult(network string, res *simulator.SimulationResponse) {
 				if event.ContractID != nil {
 					fmt.Printf(", Contract: %s", *event.ContractID)
 				}
+				if deprecatedFn, ok := deprecatedHostFunctionInDiagnosticEvent(event); ok {
+					fmt.Printf(" %s %s", visualizer.Warning(), visualizer.Colorize("deprecated host fn: "+deprecatedFn, "yellow"))
+				}
 				fmt.Printf("\n")
 				if len(event.Topics) > 0 {
 					fmt.Printf("      Topics: %v\n", event.Topics)
@@ -1078,9 +1073,8 @@ func init() {
 	debugCmd.Flags().BoolVar(&demoMode, "demo", false, "Print sample output (no network) - for testing color detection")
 	debugCmd.Flags().BoolVar(&watchFlag, "watch", false, "Poll for transaction on-chain before debugging")
 	debugCmd.Flags().IntVar(&watchTimeoutFlag, "watch-timeout", 30, "Timeout in seconds for watch mode")
-	debugCmd.Flags().Uint32Var(&protocolVersionFlag, "protocol-version", 0, "Override protocol version for simulation (20, 21, 22, etc)")
-	debugCmd.Flags().StringVar(&themeFlag, "theme", "", "Color theme (default, deuteranopia, protanopia, tritanopia, high-contrast)")
-	debugCmd.Flags().Int64Var(&mockTimeFlag, "mock-time", 0, "Fix the ledger timestamp for deterministic local simulation (Unix epoch seconds); 0 = disabled")
+	debugCmd.Flags().Uint32Var(&mockBaseFeeFlag, "mock-base-fee", 0, "Override base fee (stroops) for local fee sufficiency checks")
+	debugCmd.Flags().Uint64Var(&mockGasPriceFlag, "mock-gas-price", 0, "Override gas price multiplier for local fee sufficiency checks")
 
 	rootCmd.AddCommand(debugCmd)
 }
