@@ -3,6 +3,7 @@
 
 mod config;
 mod gas_optimizer;
+mod debug_host_fn;
 mod runner;
 mod source_mapper;
 mod types;
@@ -439,6 +440,14 @@ fn main() {
                 format!("CPU Instructions Used: {}", cpu_insns),
                 format!("Memory Bytes Used: {}", mem_bytes),
             ];
+            let contract_debug_logs: Vec<String> = match host.get_events() {
+                Ok(ref evs) => debug_host_fn::extract_debug_logs(evs)
+                    .into_iter()
+                    .map(|msg| format!("[debug] {}", msg))
+                    .collect(),
+                Err(_) => vec![],
+            };
+            final_logs.extend(contract_debug_logs);
             final_logs.extend(exec_logs);
 
             let response = SimulationResponse {
