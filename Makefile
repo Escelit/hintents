@@ -1,7 +1,7 @@
 .PHONY: build test lint lint-strict lint-unused test-unused validate-ci validate-interface clean
 .PHONY: rust-lint rust-lint-strict rust-test rust-build lint-all-strict
 .PHONY: build test lint validate-errors clean bench bench-rpc bench-sim bench-profile
-.PHONY: fmt fmt-go fmt-rust pre-commit
+.PHONY: fmt fmt-go fmt-rust pre-commit audit-deprecated
 
 # Build variables
 VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -16,6 +16,20 @@ LDFLAGS=-ldflags "-X 'github.com/dotandev/hintents/internal/cmd.Version=$(VERSIO
 # Build the main binary
 build:
 	go build $(LDFLAGS) -o bin/erst ./cmd/erst
+
+# Audit for deprecated stellar-sdk symbols — exits non-zero if any are found
+audit-deprecated:
+	@echo "Auditing deprecated SDK symbols..."
+	@! grep -rn \
+	    -e 'NewClientDefault\b' \
+	    -e 'NewClientWithURLOption\b' \
+	    -e 'NewClientWithURLsOption\b' \
+	    -e 'NewCustomClient\b' \
+	    --include='*.go' \
+	    --exclude-dir=vendor \
+	    . \
+	  || (echo "FAIL: deprecated symbols found" && exit 1)
+	@echo "OK: no deprecated symbols found"
 
 # Build for release (optimized)
 build-release:

@@ -12,7 +12,10 @@ import (
 
 func TestClient_Rotation(t *testing.T) {
 	urls := []string{"http://fail1.com", "http://success2.com"}
-	client := NewClientWithURLsOption(urls, Testnet, "")
+	client, err := NewClient(WithNetwork(Testnet), WithToken(""), WithAltURLs(urls))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 
 	assert.Equal(t, "http://fail1.com", client.HorizonURL)
 	assert.Equal(t, 0, client.currIndex)
@@ -40,10 +43,13 @@ func TestClient_GetTransaction_Failover_Logic(t *testing.T) {
 	// by checking that it returns an error after trying all URLs if they all fail.
 
 	urls := []string{"http://fail1.com", "http://fail2.com"}
-	client := NewClientWithURLsOption(urls, Testnet, "")
+	client, err := NewClient(WithNetwork(Testnet), WithToken(""), WithAltURLs(urls))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 
 	ctx := context.Background()
-	_, err := client.GetTransaction(ctx, "abc")
+	_, err = client.GetTransaction(ctx, "abc")
 
 	assert.Error(t, err)
 	fallbackErr, ok := err.(*AllNodesFailedError)

@@ -274,8 +274,11 @@ func TestAltURLsAsFailover(t *testing.T) {
 	}
 }
 
-func TestDeprecatedNewClient(t *testing.T) {
-	client := NewClientDefault(Testnet, "token")
+func TestNewClientWithOptions(t *testing.T) {
+	client, err := NewClient(WithNetwork(Testnet), WithToken("token"))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	if client == nil {
 		t.Fatal("expected client, got nil")
 		return
@@ -285,8 +288,11 @@ func TestDeprecatedNewClient(t *testing.T) {
 	}
 }
 
-func TestDeprecatedNewClientWithURL(t *testing.T) {
-	client := NewClientWithURLOption(TestnetHorizonURL, Testnet, "token")
+func TestNewClientWithHorizonURL(t *testing.T) {
+	client, err := NewClient(WithNetwork(Testnet), WithToken("token"), WithHorizonURL(TestnetHorizonURL))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	if client == nil {
 		t.Fatal("expected client, got nil")
 		return
@@ -296,9 +302,12 @@ func TestDeprecatedNewClientWithURL(t *testing.T) {
 	}
 }
 
-func TestDeprecatedNewClientWithURLs(t *testing.T) {
+func TestNewClientWithMultipleURLs(t *testing.T) {
 	urls := []string{"https://horizon-testnet.stellar.org/", "https://horizon-futurenet.stellar.org/"}
-	client := NewClientWithURLsOption(urls, Testnet, "token")
+	client, err := NewClient(WithNetwork(Testnet), WithToken("token"), WithAltURLs(urls))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	if client == nil {
 		t.Fatal("expected client, got nil")
 		return
@@ -326,8 +335,8 @@ func BenchmarkNewClientWithMultipleOptions(b *testing.B) {
 	}
 }
 
-func BenchmarkNewCustomClient(b *testing.B) {
+func BenchmarkNewClientWithNetworkConfig(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		NewCustomClient(TestnetConfig)
+		NewClient(WithNetworkConfig(TestnetConfig))
 	}
 }

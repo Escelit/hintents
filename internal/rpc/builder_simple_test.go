@@ -146,8 +146,11 @@ func TestBuilderMultipleOptions(t *testing.T) {
 	}
 }
 
-func TestDeprecatedNewClientDefault(t *testing.T) {
-	client := NewClientDefault(Testnet, "")
+func TestNewClientWithOptions_Default(t *testing.T) {
+	client, err := NewClient(WithNetwork(Testnet), WithToken(""))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	if client == nil {
 		t.Fatal("expected non-nil client")
 		return
@@ -157,9 +160,12 @@ func TestDeprecatedNewClientDefault(t *testing.T) {
 	}
 }
 
-func TestDeprecatedNewClientWithURLOption(t *testing.T) {
+func TestNewClientWithOptions_URL(t *testing.T) {
 	url := "https://custom.org"
-	client := NewClientWithURLOption(url, Testnet, "")
+	client, err := NewClient(WithNetwork(Testnet), WithToken(""), WithHorizonURL(url))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	if client == nil {
 		t.Fatal("expected non-nil client")
 		return
@@ -169,9 +175,12 @@ func TestDeprecatedNewClientWithURLOption(t *testing.T) {
 	}
 }
 
-func TestDeprecatedNewClientWithURLsOption(t *testing.T) {
+func TestNewClientWithOptions_URLs(t *testing.T) {
 	urls := []string{"https://url1.org", "https://url2.org"}
-	client := NewClientWithURLsOption(urls, Testnet, "")
+	client, err := NewClient(WithNetwork(Testnet), WithToken(""), WithAltURLs(urls))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	if client == nil {
 		t.Fatal("expected non-nil client")
 		return
@@ -181,9 +190,9 @@ func TestDeprecatedNewClientWithURLsOption(t *testing.T) {
 	}
 }
 
-func TestDeprecatedNewCustomClient(t *testing.T) {
+func TestNewClientWithOptions_NetworkConfig(t *testing.T) {
 	config := MainnetConfig
-	client, err := NewCustomClient(config)
+	client, err := NewClient(WithNetworkConfig(config))
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

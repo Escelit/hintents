@@ -29,8 +29,7 @@ func DecodeContractSpec(data []byte) (*ContractSpec, error) {
 
 	for reader.Len() > 0 {
 		var entry xdr.ScSpecEntry
-		_, err := xdr.Unmarshal(reader, &entry)
-		if err != nil {
+		if _, err := xdr.Unmarshal(reader, &entry); err != nil {
 			return nil, fmt.Errorf("decoding spec entry: %w", err)
 		}
 

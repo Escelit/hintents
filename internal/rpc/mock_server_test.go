@@ -333,7 +333,10 @@ func TestMockServer_ClientUsage(t *testing.T) {
 	defer mockServer.Close()
 
 	// Create a client pointing to the mock server
-	client := NewClientWithURLOption(mockServer.URL(), Testnet, "")
+	client, err := NewClient(WithNetwork(Testnet), WithHorizonURL(mockServer.URL()+"/"))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	assert.NotNil(t, client)
 
 	// The horizonclient would now use the mock server URLs

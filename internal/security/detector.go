@@ -271,7 +271,7 @@ func decodeEnvelope(envelopeXdr string) (xdr.TransactionEnvelope, error) {
 	if err != nil {
 		return envelope, err
 	}
-	_, err = xdr.Unmarshal(strings.NewReader(string(decoded)), &envelope)
+	err = xdr.SafeUnmarshal(decoded, &envelope)
 	return envelope, err
 }
 
